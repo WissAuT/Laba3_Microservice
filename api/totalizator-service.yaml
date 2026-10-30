@@ -1,0 +1,108 @@
+openapi: 3.1.0
+info:
+title: totalizator-service
+description: Сервис расчета пулов ставок, динамических коэффициентов и распределения выигрышей.
+version: 1.0.0
+paths:
+/api/v1/pools/{raceId}:
+get:
+summary: Получить информацию о пуле и текущих коэффициентах заезда
+tags: [public]
+parameters:
+- name: raceId
+in: path
+required: true
+schema:
+type: integer
+responses:
+'200':
+description: Текущий пул и коэффициенты
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/RacePool'
+'404':
+$ref: '#/components/responses/NotFound'
+
+/internal/v1/results:
+post:
+summary: Принять официальный результат заезда для расчета ставок
+tags: [internal]
+requestBody:
+required: true
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/RaceResultSubmission'
+responses:
+'200':
+description: Результат принят, расчёт выигрышей запущен
+content:
+application/json:
+schema:
+type: object
+properties:
+status:
+type: string
+example: "CALCULATION_STARTED"
+
+components:
+schemas:
+RacePool:
+type: object
+required: [raceId, totalPoolAmount, odds]
+properties:
+raceId:
+type: integer
+totalPoolAmount:
+type: number
+format: float
+odds:
+type: array
+items:
+$ref: '#/components/schemas/HorseOdds'
+
+HorseOdds:
+  type: object
+  required: [horseId, currentOdds, totalBetAmount]
+  properties:
+    horseId:
+      type: integer
+    currentOdds:
+      type: number
+      format: float
+      example: 2.45
+    totalBetAmount:
+      type: number
+      format: float
+
+RaceResultSubmission:
+  type: object
+  required: [raceId, winnerHorseId]
+  properties:
+    raceId:
+      type: integer
+    winnerHorseId:
+      type: integer
+
+ProblemDetails:
+  type: object
+  required: [type, title, status, detail]
+  properties:
+    type:
+      type: string
+    title:
+      type: string
+    status:
+      type: integer
+    detail:
+      type: string
+
+
+responses:
+NotFound:
+description: Пул для данного заезда не найден
+content:
+application/problem+json:
+schema:
+$ref: '#/components/schemas/ProblemDetails'

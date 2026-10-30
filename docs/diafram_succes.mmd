@@ -1,0 +1,31 @@
+Note over Client, NS: 1. Оформление и регистрация ставки
+Client->>GW: POST /api/v1/bets (raceId: 101, horseId: 7, amount: $100)
+GW->>BS: POST /api/v1/bets (с авторизационным JWT)
+
+BS->>RS: GET /internal/v1/races/101 (Проверка статуса)
+RS-->>BS: 200 OK (Status: BETTING_OPEN)
+
+BS->>PS: POST /internal/v1/wallets/hold ($100)
+PS-->>BS: 200 OK (Hold ID: h-9876, Status: HELD)
+
+BS->>BS: Сохранение ставки в PostgreSQL (Status: ACCEPTED)
+BS-->>GW: 201 Created (Bet ID: b-1234)
+GW-->>Client: 201 Created (Ставка принята!)
+
+BS-.->RMQ: Публикация события `BetPlaced` (betId: b-1234, raceId: 101)
+RMQ-.->TS: Чтение события `BetPlaced`
+TS->>TS: Пересчёт пула и коэффициентов заезда #101
+
+Note over Client, NS: 2. Завершение заезда и расчёт выигрыша
+RS-.->RMQ: Публикация события `RaceFinished` (raceId: 101, winnerHorseId: 7)
+RMQ-.->TS: Чтение события `RaceFinished`
+
+TS->>TS: Расчёт ставок заезда #101 (Победа ставки b-1234)
+TS-.->RMQ: Публикация события `BetCalculated` (betId: b-1234, status: WON, payout: $245)
+
+RMQ-.->PS: Чтение события `BetCalculated`
+PS->>PS: Списание $100 из HELD + Зачисление $245 выигрыша на баланс
+PS-.->RMQ: Публикация события `PayoutProcessed` (userId, amount: $245)
+
+RMQ-.->NS: Чтение событий `BetPlaced` и `PayoutProcessed`
+NS->>Client: Отправка Push-уведомления "Вам зачислен выигрыш $245!"

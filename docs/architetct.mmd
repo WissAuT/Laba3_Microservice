@@ -1,0 +1,44 @@
+Client -->|HTTPS / REST| Gateway
+Gateway -->|Проверка JWT| Keycloak
+
+%% Микросервисы
+subgraph Services["Бизнес-сервисы"]
+    RS["race-service\n(Заезды и расписание)"]
+    BS["betting-service\n(Приём и отмена ставок)"]
+    TS["totalizator-service\n(Расчёт пула и коэффициентов)"]
+    PS["payout-service\n(Кошельки и финансы)"]
+    NS["notification-service\n(Уведомления)"]
+end
+
+%% Маршрутизация с Gateway
+Gateway -->|GET /api/v1/races| RS
+Gateway -->|POST /api/v1/bets| BS
+Gateway -->|GET /api/v1/pools| TS
+Gateway -->|GET /api/v1/wallets| PS
+
+%% Синхронные межсервисные связи (HTTP REST)
+BS -->|1. GET /internal/v1/races/{id}| RS
+BS -->|2. POST /internal/v1/wallets/hold| PS
+
+%% Базы данных и кэш
+RDB[(PostgreSQL)] --- RS
+RCache[(Redis)] --- RS
+BDB[(PostgreSQL)] --- BS
+TDB[(MongoDB)] --- TS
+PDB[(PostgreSQL)] --- PS
+NDB[(MongoDB)] --- NS
+
+%% Брокер сообщений (RabbitMQ)
+Broker[["Broker: RabbitMQ"]]
+
+%% Публикация событий (Async)
+BS -.->|bet.placed| Broker
+RS -.->|race.finished| Broker
+TS -.->|bet.calculated| Broker
+PS -.->|payout.processed| Broker
+
+%% Подписка на события (Async)
+Broker -.->|tot.bet-placed| TS
+Broker -.->|tot.race-finished| TS
+Broker -.->|payout.bet-calculated| PS
+Broker -.->|notif.events| NS

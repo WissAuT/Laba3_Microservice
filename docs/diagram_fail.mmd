@@ -1,0 +1,28 @@
+Note over Client, PS: Сценарий: Падение БД betting-service во время создания ставки
+
+Client->>GW: POST /api/v1/bets (raceId: 101, horseId: 7, amount: $100)
+GW->>BS: POST /api/v1/bets (с JWT)
+
+BS->>RS: GET /internal/v1/races/101
+RS-->>BS: 200 OK (Status: BETTING_OPEN)
+
+BS->>PS: POST /internal/v1/wallets/hold (Заморозить $100)
+PS-->>PS: Заморозка средств на кошельке игрока
+PS-->>BS: 200 OK (Hold ID: h-9876, Status: HELD)
+
+Note over BS: СБОЙ: База данных betting-service недоступна / упала!
+BS--xBS: Ошибка при записи ставки в PostgreSQL
+
+BS-->>GW: 500 Internal Server Error
+GW-->>Client: 500 Internal Server Error ("Ошибка при обработке ставки")
+
+Note over Client, PS: Запуск компенсирующего действия (Saga Recovery)
+
+Note over BS: Фоновый таск (Scheduled Cleanup Worker) просыпается через 30 сек
+BS->>BS: Поиск зависших записей или таймаутов транзакций с Hold ID: h-9876
+
+BS->>PS: POST /internal/v1/wallets/release (Hold ID: h-9876) [Компенсирующий вызов]
+PS->>PS: Снятие заморозки h-9876, возврат $100 на доступный баланс
+PS-->>BS: 200 OK (Hold Released)
+
+Note over Client, PS: Результат: Согласованность данных восстановлена, средства клиента разблокированы.

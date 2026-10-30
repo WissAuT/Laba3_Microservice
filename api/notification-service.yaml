@@ -1,0 +1,36 @@
+openapi: 3.1.0
+info:
+title: notification-service
+description: Фоновый сервис формирования и доставки уведомлений пользователям.
+version: 1.0.0
+paths:
+/internal/v1/notifications/send:
+post:
+summary: Ручная отправка системного уведомления (Internal/Admin)
+tags: [internal]
+requestBody:
+required: true
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/SendNotificationRequest'
+responses:
+'202':
+description: Уведомление принято в очередь на отправку
+
+components:
+schemas:
+SendNotificationRequest:
+type: object
+required: [userId, channel, title, body]
+properties:
+userId:
+type: string
+format: uuid
+channel:
+type: string
+enum: [PUSH, EMAIL, SMS]
+title:
+type: string
+body:
+type: string

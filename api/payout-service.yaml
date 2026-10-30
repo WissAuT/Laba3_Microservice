@@ -1,0 +1,119 @@
+openapi: 3.1.0
+info:
+title: payout-service
+description: Финансовый сервис управления балансами, холдирования средств и зачисления выплат.
+version: 1.0.0
+paths:
+/api/v1/wallets/me:
+get:
+summary: Получить текущий баланс и состояние кошелька авторизованного пользователя
+tags: [public]
+responses:
+'200':
+description: Данные кошелька
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/Wallet'
+
+/internal/v1/wallets/hold:
+post:
+summary: Заморозить (холдировать) средства под оформляемую ставку
+tags: [internal]
+requestBody:
+required: true
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/HoldRequest'
+responses:
+'200':
+description: Средства успешно заморожены
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/HoldResponse'
+'402':
+description: Недостаточно средств на балансе
+content:
+application/problem+json:
+schema:
+$ref: '#/components/schemas/ProblemDetails'
+
+/internal/v1/wallets/release:
+post:
+summary: Отменить холдирование и вернуть средства на доступный баланс (Компенсирующее действие)
+tags: [internal]
+requestBody:
+required: true
+content:
+application/json:
+schema:
+type: object
+required: [holdId]
+properties:
+holdId:
+type: string
+format: uuid
+responses:
+'200':
+description: Средства разблокированы
+
+components:
+schemas:
+Wallet:
+type: object
+required: [userId, availableBalance, heldBalance, currency]
+properties:
+userId:
+type: string
+format: uuid
+availableBalance:
+type: number
+format: float
+example: 1250.50
+heldBalance:
+type: number
+format: float
+example: 100.00
+currency:
+type: string
+example: "RUB"
+
+HoldRequest:
+  type: object
+  required: [userId, amount, betReferenceId]
+  properties:
+    userId:
+      type: string
+      format: uuid
+    amount:
+      type: number
+      format: float
+    betReferenceId:
+      type: string
+      format: uuid
+
+HoldResponse:
+  type: object
+  required: [holdId, status]
+  properties:
+    holdId:
+      type: string
+      format: uuid
+    status:
+      type: string
+      example: "HELD"
+
+ProblemDetails:
+  type: object
+  required: [type, title, status, detail]
+  properties:
+    type:
+      type: string
+    title:
+      type: string
+    status:
+      type: integer
+    detail:
+      type: string

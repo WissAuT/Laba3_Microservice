@@ -1,0 +1,187 @@
+openapi: 3.1.0
+info:
+title: betting-service
+description: Сервис приёма, валидации и отмены ставок на ипподроме.
+version: 1.0.0
+paths:
+/api/v1/bets:
+post:
+summary: Сделать ставку на лошадь в заезде
+tags: [public]
+parameters:
+- in: header
+name: Idempotency-Key
+required: true
+schema:
+type: string
+format: uuid
+requestBody:
+required: true
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/CreateBetRequest'
+example:
+raceId: 101
+horseId: 7
+amount: 500.00
+responses:
+'201':
+description: Ставка успешно зарегистрирована
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/Bet'
+'400':
+$ref: '#/components/responses/BadRequest'
+'409':
+description: Конфликт идемпотентности или приём ставок закрыт
+content:
+application/problem+json:
+schema:
+$ref: '#/components/schemas/ProblemDetails'
+
+/api/v1/bets/my:
+get:
+summary: Список ставок текущего авторизованного пользователя
+tags: [public]
+parameters:
+- name: page
+in: query
+schema:
+type: integer
+default: 1
+- name: size
+in: query
+schema:
+type: integer
+default: 10
+responses:
+'200':
+description: Список ставок пользователя
+content:
+application/json:
+schema:
+type: object
+properties:
+items:
+type: array
+items:
+$ref: '#/components/schemas/Bet'
+page:
+type: integer
+size:
+type: integer
+
+/api/v1/bets/{id}/cancel:
+post:
+summary: Отменить активную ставку (до начала заезда)
+tags: [public]
+parameters:
+- name: id
+in: path
+required: true
+schema:
+type: string
+format: uuid
+responses:
+'200':
+description: Ставка отменена, запущен возврат средств
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/Bet'
+'400':
+$ref: '#/components/responses/BadRequest'
+
+components:
+schemas:
+CreateBetRequest:
+type: object
+required: [raceId, horseId, amount]
+properties:
+raceId:
+type: integer
+horseId:
+type: integer
+amount:
+type: number
+format: float
+minimum: 10.0
+
+Bet:
+  type: object
+  required: [id, userId, raceId, horseId, amount, status, createdAt]
+  properties:
+    id:
+      type: string
+      format: uuid
+    userId:
+      type: string
+      format: uuid
+    raceId:
+      type: integer
+    horseId:
+      type: integer
+    amount:
+      type: number
+      format: float
+    status:
+      type: string
+      enum: [ACCEPTED, WON, LOST, CANCELLED]
+    createdAt:
+      type: string
+      format: date-time
+
+ProblemDetails:
+  type: object
+  required: [type, title, status, detail]
+  properties:
+    type:
+      type: string
+      format: uri
+    title:
+      type: string
+    status:
+      type: integer
+    detail:
+      type: string
+
+# Асинхронное событие для брокера (RabbitMQ)
+BetPlacedEvent:
+  type: object
+  required: [eventId, eventType, occurredAt, payload]
+  properties:
+    eventId:
+      type: string
+      format: uuid
+    eventType:
+      type: string
+      example: "bet.placed"
+    occurredAt:
+      type: string
+      format: date-time
+    payload:
+      type: object
+      properties:
+        betId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        raceId:
+          type: integer
+        horseId:
+          type: integer
+        amount:
+          type: number
+
+
+responses:
+BadRequest:
+description: Ошибка в параметрах запроса
+content:
+application/problem+json:
+schema:
+$ref: '#/components/schemas/ProblemDetails'

@@ -1,0 +1,184 @@
+openapi: 3.1.0
+info:
+title: race-service
+description: Сервис управления заездами, лошадьми и расписанием ипподрома.
+version: 1.0.0
+paths:
+/api/v1/races:
+get:
+summary: Получить список заездов с пагинацией
+tags: [public]
+parameters:
+- name: page
+in: query
+required: false
+schema:
+type: integer
+default: 1
+- name: size
+in: query
+required: false
+schema:
+type: integer
+default: 10
+- name: status
+in: query
+required: false
+schema:
+type: string
+enum: [SCHEDULED, BETTING_OPEN, IN_PROGRESS, FINISHED, CANCELLED]
+responses:
+'200':
+description: Успешный ответ со списком заездов
+content:
+application/json:
+schema:
+type: object
+properties:
+items:
+type: array
+items:
+$ref: '#/components/schemas/Race'
+page:
+type: integer
+size:
+type: integer
+total:
+type: integer
+'400':
+$ref: '#/components/responses/BadRequest'
+
+post:
+  summary: Создать новый заезд (только для судей)
+  tags: [admin]
+  parameters:
+    - in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+        format: uuid
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/CreateRaceRequest'
+  responses:
+    '201':
+      description: Заезд создан
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Race'
+    '400':
+      $ref: '#/components/responses/BadRequest'
+
+
+/internal/v1/races/{id}:
+get:
+summary: Внутренний метод проверки статуса и деталей заезда
+tags: [internal]
+parameters:
+- name: id
+in: path
+required: true
+schema:
+type: integer
+responses:
+'200':
+description: Данные о заезде найдены
+content:
+application/json:
+schema:
+$ref: '#/components/schemas/RaceDetail'
+'404':
+$ref: '#/components/responses/NotFound'
+
+components:
+schemas:
+Race:
+type: object
+required: [id, title, startTime, status]
+properties:
+id:
+type: integer
+example: 101
+title:
+type: string
+example: "Приз Большого Всесоюзного дерби"
+startTime:
+type: string
+format: date-time
+example: "2026-11-15T14:00:00Z"
+status:
+type: string
+enum: [SCHEDULED, BETTING_OPEN, IN_PROGRESS, FINISHED, CANCELLED]
+example: "BETTING_OPEN"
+
+RaceDetail:
+  allOf:
+    - $ref: '#/components/schemas/Race'
+    - type: object
+      properties:
+        horses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Horse'
+
+Horse:
+  type: object
+  required: [id, name, number]
+  properties:
+    id:
+      type: integer
+      example: 7
+    name:
+      type: string
+      example: "Молния"
+    number:
+      type: integer
+      example: 3
+
+CreateRaceRequest:
+  type: object
+  required: [title, startTime, horseIds]
+  properties:
+    title:
+      type: string
+    startTime:
+      type: string
+      format: date-time
+    horseIds:
+      type: array
+      items:
+        type: integer
+
+ProblemDetails:
+  type: object
+  required: [type, title, status, detail]
+  properties:
+    type:
+      type: string
+      format: uri
+    title:
+      type: string
+    status:
+      type: integer
+    detail:
+      type: string
+
+
+responses:
+BadRequest:
+description: Некорректный запрос
+content:
+application/problem+json:
+schema:
+$ref: '#/components/schemas/ProblemDetails'
+NotFound:
+description: Ресурс не найден
+content:
+application/problem+json:
+schema:
+$ref: '#/components/schemas/ProblemDetails'
