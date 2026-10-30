@@ -125,17 +125,17 @@
 ## Шаг 4. Схема взаимодействий
 
 ### 4.1. Архитектурная схема
-![Архитектурная схема](docs\architect.png)
+![Архитектурная схема](docs/architect.png)
 
 Исходник: [docs/architect.drawio](docs/architect.drawio)
 
 ### 4.2. Диаграмма последовательности — успешный путь
-![Успешный путь](docs\diagram_succes.png)
+![Успешный путь](docs/diagram_succes.png)
 
 Исходник: [docs/diagram_succes.mmd](docs/diagram_succes.mmd)
 
 ### 4.3. Диаграмма последовательности — сбой
-![Сбой](docs\diagram_fail.png)
+![Сбой](docs/diagram_fail.png)
 
 Исходник: [docs/diagram_failed.mmd](docs/diagram_fail.mmd)
 
